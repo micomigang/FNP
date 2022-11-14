@@ -1,0 +1,174 @@
+---
+title: "Final Project"
+author: "Yinzhou Wang"
+date: "2022-11-06"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+\section{Introduction}
+According to the CDC, in the U.S., about half the population will be diagnosed with mental illness at some point in their life. In a given year, 1 in 5 Americans experience a mental disorder, and 1 in 25 Americans experience a severe mental disorder
+This data is from U.S. Department of Health and Human Services, containing data of
+clients who have used mental health services in facilities that report to individual state
+administrative data systems.
+```{r}
+#summary(df)
+library(tidyverse)
+library(ggplot2)
+```
+
+\section{data cleaning}
+```{r}
+#select variables of interest
+df_1 = df %>% select("AGE", "RACE", "GENDER", "MARSTAT", "EMPLOY", "MH1")
+```
+
+Define Variables(-9 means missing data):
+AGE: Calculated from the client's date of birth at midpoint of the state's elected reporting period. 14 categories
+RACE: Specifies the client's most recent reported race at the end of the reporting period
+SEX: Identifies the client's most recent reported sex at the end of the reporting period.
+MARSTAT: Identifies the client's marital status.
+MH1:Specifies the client's current first mental health diagnosis during the reporting period.
+
+\section{Mental Disorders}
+```{r}
+# define disorder group
+disorder_group = c("Trauma- and stressor-related disorders", "Anxiety disorders", "Attention deficit/hyperactivity disorder (ADHD)", "Conduct disorders", "Delirium, dementia", "Bipolar disorders", "Depressive disorders", "Oppositional defiant disorders", "Pervasive developmental disorders", "Personality disorders", "Schizophrenia or other psychotic disorders", "Alcohol or substance use disorders", "Other disorders/conditions")
+# exclude the missing data and first age group
+df_1_mh_cleaned = df_1 %>% filter(MH1 != -9)
+df_1_mh_cleaned$MH1 = as.factor(df_1_mh_cleaned$MH1)
+#plot
+ggplot(df_1_mh_cleaned, aes(MH1, fill=MH1)) + geom_bar()+
+  labs(title="Mental Disorders Count",
+       y="Count", x="Disorders") +
+  scale_fill_discrete(labels=disorder_group)+
+  theme(panel.background = element_rect(fill = "#f5f0ec"),
+        plot.background = element_rect(color = "#f5f0ec", fill = "#f5f0ec"),
+        panel.grid.minor = element_blank(),
+        legend.background = element_rect(fill = "#f5f0ec"))
+ggsave('disorder_distribution.png',device="png")
+```
+
+
+\section{Age}
+```{r}
+# define age group
+age_group = c("12–14 years", "15–17 years", "18–20 years", "21–24 years", "25–29 years", "30–34 years", "35–39 years", "40–44 years", "45–49 years", "50–54 years", "55–59 years", "60–64 years", "65 years and older")
+# summarize by age group
+col_age = df_1 %>% select("AGE") %>% group_by(AGE) %>% tally()
+# exclude the missing data and first age group
+df_1_age_cleaned = df_1 %>% filter(AGE != -9) %>% filter(AGE != 1)
+df_1_age_cleaned$AGE = as.factor(df_1_age_cleaned$AGE)
+#plot
+ggplot(df_1_age_cleaned, aes(AGE, fill=AGE)) + geom_bar()+
+  labs(title="Age Distribution",
+       y="Count", x="Age Group") +
+  scale_fill_discrete(labels=age_group) +
+  theme(panel.background = element_rect(fill = "#f5f0ec"),
+      plot.background = element_rect(color = "#f5f0ec", fill = "#f5f0ec"),
+      panel.grid.minor = element_blank(),
+      legend.background = element_rect(fill = "#f5f0ec"))
+ggsave('age_distribution.png',device="png")
+```
+\section{Race}
+```{r}
+# exclude the null data
+df_1_race_cleaned = df_1 %>% select(RACE)%>% filter(RACE != -9) %>% group_by(RACE) %>% tally()
+# define race group
+race_group = c("American Indian/Alaska Native", "Asian", "Black or African American", "Native Hawaiian or Other Pacific Islander", "White", "Some other race alone/two or more races")
+# plot
+ggplot(df_1_race_cleaned, aes(x = "", y = n, fill = factor(RACE))) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0)+
+  scale_fill_discrete(labels=race_group)+
+  labs(fill='Race') +
+  theme(panel.background = element_rect(fill = "#f5f0ec"),
+    plot.background = element_rect(color = "#f5f0ec", fill = "#f5f0ec"),
+    panel.grid.minor = element_blank(),
+    legend.background = element_rect(fill = "#f5f0ec"))
+ggsave('Race_distribution.png',device="png")
+```
+\section{Race Standardized}
+
+```{r}
+# summary data from U.S census
+standardization_race = pop_2019*c(0.007,0.056,0.122,0.002,0.601,0.028)
+df_1_race_cleaned$n = df_1_race_cleaned$n/standardization_race
+# plot
+ggplot(df_1_race_cleaned, aes(x=RACE,y=n, fill=factor(RACE))) + geom_bar(stat = 'identity')+
+  labs(title="Standardized Race",
+       y="Percentage", x="Race") +
+  scale_fill_discrete(labels=race_group)+
+  theme(panel.background = element_rect(fill = "#f5f0ec"),
+      plot.background = element_rect(color = "#f5f0ec", fill = "#f5f0ec"),
+      panel.grid.minor = element_blank(),
+      legend.background = element_rect(fill = "#f5f0ec"))
+ggsave('standardized_race.png',device="png")
+```
+
+
+\section{Gender}
+```{r}
+# exclude the null data
+df_1_gender_cleaned = df_1 %>% select(GENDER) %>% filter(GENDER != -9) %>% group_by(GENDER) %>% tally()
+# define Gender group
+gender_group = c("Male", "Female")
+# plot
+ggplot(df_1_gender_cleaned, aes(x = "", y = n, fill = factor(GENDER))) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0)+
+  scale_fill_discrete(labels=gender_group)+
+  labs(fill='Gender')+
+  theme(panel.background = element_rect(fill = "#f5f0ec"),
+    plot.background = element_rect(color = "#f5f0ec", fill = "#f5f0ec"),
+    panel.grid.minor = element_blank(),
+    legend.background = element_rect(fill = "#f5f0ec"))
+ggsave('Gender_distribution.png',device="png")
+```
+\section{Marital Status}
+```{r}
+# exclude the null data
+df_1_marital_cleaned = df_1 %>% select(MARSTAT)%>% filter(MARSTAT != -9) %>% group_by(MARSTAT) %>% tally()
+# define Gender group
+Marital_group = c("Never married", "Now married", "Separated", "Divorced, widowed")
+# plot
+ggplot(df_1_marital_cleaned, aes(x = "", y = n, fill = factor(MARSTAT))) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0)+
+  scale_fill_discrete(labels=Marital_group)+
+  labs(fill='Marital Status')+
+  theme(panel.background = element_rect(fill = "#f5f0ec"),
+    plot.background = element_rect(color = "#f5f0ec", fill = "#f5f0ec"),
+    panel.grid.minor = element_blank(),
+    legend.background = element_rect(fill = "#f5f0ec"))
+ggsave('Marital_distribution.png',device="png")
+```
+
+\section{Marital Standardized}
+
+```{r}
+# summary data from U.S census
+standardization_m = pop_2019*c(0.37,0.493,0.016,0.121)
+df_1_marital_cleaned$n = df_1_marital_cleaned$n/standardization_m
+# plot
+ggplot(df_1_marital_cleaned, aes(x=MARSTAT,y=n, fill=factor(MARSTAT))) + geom_bar(stat = 'identity')+
+  labs(title="Standardized Marital Status",
+       y="Percentage", x="Status") +
+  scale_fill_discrete(labels=Marital_group)+
+  theme(panel.background = element_rect(fill = "#f5f0ec"),
+      plot.background = element_rect(color = "#f5f0ec", fill = "#f5f0ec"),
+      panel.grid.minor = element_blank(),
+      legend.background = element_rect(fill = "#f5f0ec"))
+ggsave('standardized_marital.png',device="png")
+```
+
+
+\section{limitation}
+The data is collected on people who uses health services, can't represent the population's mental health state.
+
+\section{Citation}
+Substance Abuse andMentalHealthServicesAdministration,Centerfor Behavioral HealthStatistics
+and Quality. Mental Health Client-Level Data 2019. Rockville, MD: Substance Abuse and
+Mental Health Services Administration, 2021.

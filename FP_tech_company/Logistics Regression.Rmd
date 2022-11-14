@@ -1,0 +1,48 @@
+---
+title: "Final"
+author: "Tianyue Zhou"
+date: "2022-11-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+survey <- read.csv("Survey_num.csv")
+```
+
+```{r}
+survey1 <- survey %>% select(treatment,family_history,work_interfere,benefits,care_options)
+survey1 <- na.omit(survey1)
+```
+
+```{r}
+glm.fit = glm(treatment ~ family_history + work_interfere + benefits + care_options, data=survey1, family=binomial)
+summary(glm.fit)
+```
+
+```{r}
+glm.fit = glm(treatment ~ family_history + work_interfere + care_options, data=survey1, family=binomial)
+summary(glm.fit)
+```
+
+
+```{r}
+prob.training = predict(glm.fit, type="response")
+round(prob.training, digits=2)
+```
+
+```{r}
+library(dplyr)
+survey1 = survey1 %>%
+mutate(predtreatment =as.factor(ifelse(prob.training<=0.5, "No", "Yes")))
+matrix <- table(pred=survey1$predtreatment, true=survey1$treatment)
+matrix
+```
+
+```{r}
+1 - sum(diag(matrix)/sum(matrix))
+```
+
