@@ -1,0 +1,451 @@
+---
+title: "Final Project"
+author: "Yiwei Li"
+date: "2022-11-04"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Data Description 
+
+- **Timestamp**
+- **Age**
+- **Gender**
+- **Country**
+- **state**: If you live in the United States, which state or territory do you live in?
+- **self_employed**: Are you self-employed?
+- **family_history**: Do you have a family history of mental illness?
+- **treatment**: Have you sought treatment for a mental health condition?
+- **work_interfere**: If you have a mental health condition, do you feel that it interferes with your work?
+- **no_employees**: How many employees does your company or organization have?
+- **remote_work**: Do you work remotely (outside of an office) at least 50% of the time?
+- **tech_company**: Is your employer primarily a tech company/organization?
+- **benefits**: Does your employer provide mental health benefits?
+- **care_options**: Do you know the options for mental health care your employer provides?
+- **wellness_program**: Has your employer ever discussed mental health as part of an employee wellness program?
+- **seek_help**: Does your employer provide resources to learn more about mental health issues and how to seek help?
+- **anonymity**: Is your anonymity protected if you choose to take advantage of mental health or substance abuse treatment resources?
+- **leave**: How easy is it for you to take medical leave for a mental health condition?
+- **mentalhealthconsequence**: Do you think that discussing a mental health issue with your employer would have negative consequences?
+- **physhealthconsequence**: Do you think that discussing a physical health issue with your employer would have negative consequences?
+- **coworkers**: Would you be willing to discuss a mental health issue with your coworkers?
+- **supervisor**: Would you be willing to discuss a mental health issue with your direct supervisor(s)?
+- **mentalhealthinterview**: Would you bring up a mental health issue with a potential employer in an interview?
+- **physhealthinterview**: Would you bring up a physical health issue with a potential employer in an interview?
+- **mentalvsphysical**: Do you feel that your employer takes mental health as seriously as physical health?
+- **obs_consequence**: Have you heard of or observed negative consequences for coworkers with mental health conditions in your workplace?
+- **comments**: Any additional notes or comments
+
+
+***
+
+## Data Preprocessing
+
+
+```{r}
+# read in data
+Survey <- read.csv("Data/survey.csv")
+
+time <- Survey['Timestamp']
+comments <- Survey['comments']
+
+Survey <- Survey[,2:26]
+
+Survey[sapply(Survey, is.character)] <- lapply(Survey[sapply(Survey, is.character)], as.factor)
+
+Survey <- cbind(time, Survey, comments)
+
+# summary
+summary(Survey)
+```
+
+We need to convert **Gender** to Male, Female, and Other; make sure **Age** is within the correct range; and remove countries with a **State** that is not US.
+
+```{r}
+unique(Survey$Gender)
+```
+
+```{r}
+Survey_cleaned <- Survey
+
+## convert gender
+gender <- Survey_cleaned$Gender
+gender_new <- rep("Other", length(gender))
+
+# male
+gender_new[grepl("^m.*e$|^M|(Male)|(Man)|(Guy)|(m)|(Mail)", gender)] <- "Male"
+# female
+gender_new[grepl("[fF]|[wW]|(she)", gender)] <- "Female"
+
+
+Survey_cleaned$Gender <- as.factor(gender_new)
+
+
+## check age
+age <- Survey_cleaned$Age
+for (i in 1:length(age)) {
+  if (age[i] < 18 || age[i] >= 90) {
+    age[i] <- NA
+  }
+}
+Survey_cleaned$Age <- age
+
+
+# remove state in non-US countries
+Survey_cleaned[Survey_cleaned$Country != "United States" & !is.na(Survey_cleaned$state),]$state <- NA
+
+
+# summary
+summary(Survey_cleaned)
+```
+
+In order to build model to analysis the data, we need to convert each categorical data to numerical values. We will use the following scale for the conversion.
+
+- **Gender**: 1 $\rightarrow$ Female, 2 $\rightarrow$ Male, 3 $\rightarrow$ Other
+- **self_employed**: No $\rightarrow$ 1, Yes $\rightarrow$ 2
+- **family_history**: No $\rightarrow$ 1, Yes $\rightarrow$ 2
+- **treatment**: No $\rightarrow$ 1, Yes $\rightarrow$ 2
+- **work_interfere**: Never $\rightarrow$ 1, Often $\rightarrow$ 2, Rarely $\rightarrow$ 3, Sometimes $\rightarrow$ 4
+- **no_employees**: 1-5 $\rightarrow$ 1, 100-500 $\rightarrow$ 2, 26-100 $\rightarrow$ 3, 500-1000 $\rightarrow$ 4, 6-25 $\rightarrow$ 5, More than 1000 $\rightarrow$ 6
+- **remote_work**: No $\rightarrow$ 1, Yes $\rightarrow$ 2
+- **tech_company**: No $\rightarrow$ 1, Yes $\rightarrow$ 2
+- **benefits**: Don't know $\rightarrow$ 1, No $\rightarrow$ 2, Yes $\rightarrow$ 3
+- **care_options**: No $\rightarrow$ 1, Not sure $\rightarrow$ 2, Yes $\rightarrow$ 3
+- **wellness_program**: Don't know $\rightarrow$ 1, No $\rightarrow$ 2, Yes $\rightarrow$ 3
+- **seek_help**: Don't know $\rightarrow$ 1, No $\rightarrow$ 2, Yes $\rightarrow$ 3
+- **anonymity**: Don't know $\rightarrow$ 1, No $\rightarrow$ 2, Yes $\rightarrow$ 3
+- **leave**: Don't know $\rightarrow$ 1, Somewaht difficult $\rightarrow$ 2, Somewhat easy $\rightarrow$ 3, Very difficult $\rightarrow$ 4, Very easy $\rightarrow$ 5
+- **mentalhealthconsequence**: Maybe $\rightarrow$ 1, No $\rightarrow$ 2, Yes $\rightarrow$ 3
+- **physhealthconsequence**: Maybe $\rightarrow$ 1, No $\rightarrow$ 2, Yes $\rightarrow$ 3
+- **coworkers**: No $\rightarrow$ 1, Some of them $\rightarrow$ 2, Yes $\rightarrow$ 3
+- **supervisor**: No $\rightarrow$ 1, Some of them $\rightarrow$ 2, Yes $\rightarrow$ 3
+- **mentalhealthinterview**: Maybe $\rightarrow$ 1, No $\rightarrow$ 2, Yes $\rightarrow$ 3
+- **physhealthinterview**: Maybe $\rightarrow$ 1, No $\rightarrow$ 2, Yes $\rightarrow$ 3
+- **mentalvsphysical**: Don't know $\rightarrow$ 1, No $\rightarrow$ 2, Yes $\rightarrow$ 3
+- **obs_consequence**: No $\rightarrow$ 1, Yes $\rightarrow$ 2
+
+
+
+```{r}
+Survey_num <- Survey_cleaned
+Survey_num[sapply(Survey_num, is.factor)] <- lapply(Survey_num[sapply(Survey_num, is.factor)], as.numeric)
+
+Survey_num$state <- Survey_cleaned$state
+Survey_num$Country <- Survey_cleaned$Country
+Survey_num$Age <- as.integer(Survey_num$Age)
+```
+
+
+***
+
+## EDA
+
+1. Distribution of Age
+
+```{r}
+library(ggplot2)
+library(scales)
+
+ggplot(Survey_num, aes(x=Age)) +
+  geom_histogram(aes(y = ..density..), color = "white", fill = "#edcb69") +
+  geom_density(color = "#385a93", size = 1) +
+  labs(x = "Age", y = "Density") +
+  scale_x_continuous(limits = c(15,75), breaks = scales::pretty_breaks(n = 5)) + 
+  theme(panel.background = element_rect(fill = "#f5f0ec"),
+        plot.background = element_rect(color = "#f5f0ec", fill = "#f5f0ec"),
+        panel.grid.minor = element_blank())
+```
+
+2. Correlation Matrix
+
+```{r}
+library(reshape2)
+
+# use non-na value (971 observations)
+corr <- cor(na.omit(Survey_num[, c(2,3,6:26)]))
+
+# reshape to long format
+corr <- melt(corr)
+
+length(unique(corr$value))
+
+palette <- colorRampPalette(c("#385a93","#f5f0ec","#385a93"))
+
+ggplot(corr, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white", lwd = 0.5) +
+  scale_fill_gradient2(low = "#385a93", mid = "#f5f0ec", high = "#385a93") +
+  guides(fill = guide_colorbar(barwidth = 0.5, title = "")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
+        axis.text.y = element_text(size = 7),
+        plot.background = element_rect(color = "#f5f0ec", fill = "#f5f0ec"),
+        legend.background = element_rect(fill = "#f5f0ec")) +
+  coord_fixed() +
+  labs(x = NULL, y = NULL)
+
+
+  
+```
+
+3. Mental Health Issues within the US
+
+```{r}
+#https://www.littlemissdata.com/blog/usmap
+#https://stackoverflow.com/questions/60806822/how-do-i-change-state-or-counties-label-sizes-in-r-with-the-function-usmap
+
+library(usmap)
+library(dplyr)
+
+Survey_US <- Survey_num[Survey_num$Country == "United States", ]
+
+# with mental health issues -> treatment == 2
+stat <- Survey_US %>% 
+  group_by(state) %>% 
+  summarize(count=sum(treatment==2), percent=sum(treatment==2)/n())
+# remove NA
+stat <- stat[1:45,]
+
+# plot count
+p <- plot_usmap(data = stat, value = "count", labels = T, color = "#f5f0ec", size = 0.6) +
+  scale_fill_continuous(low = "white", high = "#385a93", name = "Count") +
+  theme(legend.position = "right",
+        plot.background = element_rect(color = "#f5f0ec", fill = "#f5f0ec"),
+        legend.background = element_rect(fill = "#f5f0ec"))
+# change label size
+p$layers[[2]]$aes_params$size <- 3
+p
+
+# plot percentage
+p <- plot_usmap(data = stat, value = "percent", labels = T, color = "#f5f0ec", size = 0.6) +
+  scale_fill_continuous(low = "white", high = "#385a93", name = "Count") +
+  theme(legend.position = "right",
+        plot.background = element_rect(color = "#f5f0ec", fill = "#f5f0ec"),
+        legend.background = element_rect(fill = "#f5f0ec"))
+# change label size
+p$layers[[2]]$aes_params$size <- 3
+p
+```
+
+```{r}
+stat
+```
+
+
+
+
+
+
+
+
+***
+
+
+## Statistical Test
+
+Given the data, we are interested in the following questions:
+
+1. If there is any difference of getting depression or mental health problems between self employed and non-self employed people
+2. Does remote work increase or decrease the change of getting mental health problems
+3. Is there any association between the number of employees and the chance of developing mental health problems
+4. How's the current mental health issues among the tech companies in the US compared with other countries
+
+
+
+```{r}
+# 1. If there is any difference of getting depression or mental health problem between self employed and non-self employed people
+# self employed -> 2, not self employed -> 1
+# with mental health issues -> 2, not -> 1
+# two proportions test
+
+Q1 <- na.omit(Survey_num[,c("self_employed","treatment")])
+Q1_self <- Q1[Q1$self_employed == 2, ]
+Q1_not <- Q1[Q1$self_employed == 1, ]
+
+
+test1 <- prop.test(x = c(sum(Q1_self$treatment == 2), sum(Q1_not$treatment == 2)), n =c(nrow(Q1_self), nrow(Q1_not)))
+test1
+```
+
+
+```{r}
+#2. Does remote work increase or decrease the change of getting mental health problems
+# remote -> 2, not remote -> 1
+# with mental health issues -> 2, not -> 1
+# two proportions test
+
+Q2 <- na.omit(Survey_num[,c("remote_work","treatment")])
+Q2_remote <- Q2[Q2$remote_work == 2, ]
+Q2_not <- Q2[Q2$remote_work == 1, ]
+
+
+prop.test(x = c(sum(Q2_remote$treatment == 2), sum(Q2_not$treatment == 2)), n =c(nrow(Q2_remote), nrow(Q2_not)))
+```
+
+
+```{r}
+#3. Is there any association between the number of employees and the chance of developing mental health problems
+# 1-5 -> 1, 100-500 -> 2, 26-100 -> 3, 500-1000 -> 4, 6-25 -> 5, >1000 -> 6
+# with mental health issues -> 2, not -> 1
+# multiple proportions test using marascuilo procedure
+
+Q3 <- na.omit(Survey_num[, c("no_employees", "treatment")])
+
+df <- Q3 %>% 
+  group_by(no_employees) %>% 
+  summarize(count = sum(treatment == 2), total = n())
+df
+
+df2 <- data.frame("G1"=c(162,91), "G2"=c(176,95), "G3"=c(289,150), "G4"=c(60,27), "G5"=c(290,128), "G6"=c(282,146))
+rownames(df2) <- c("Y","N")
+colnames(df2) <- c("1-5","6-25","26-100","100-500","500-1000",">1000")
+df2
+
+marascuilo(df2)
+```
+
+
+```{r}
+# http://datalackey.com/2019/04/16/assessing-which-of-a-series-of-pairwise-combinations-significantly-differ-via-the-marascuilo-procedure-in-r/
+marascuilo = function(dataFrame,confidence=.95) {
+
+ chiResult = chisq.test (dataFrame, correct=FALSE )
+ xSquared = chiResult$statistic
+
+ # Generate all possible pair-wise combinations of groups
+ colNames = names(dataFrame)
+ combos = combn(colNames , 2)
+ numCombos = dim(combos)[2]  # combos is an array of pairs, we want the length
+
+
+ # Allocate matrix (initially 0 rows) for results
+ results = matrix(nrow=0, ncol=5, dimnames=getResultsColumNames() )
+
+ chiSquaredConstant = calcChiSquaredConstant(dataFrame, confidence)
+ for (i in 1: numCombos) { 
+   newRow = testSignificanceOfAbsDiffVsCriticalRange(
+                        dataFrame, combos, i, chiSquaredConstant ) 
+    results = rbind(results, newRow)        # append new row to results
+ }
+
+
+ # sort results so that the pair differences that most strikingly exceed 
+ # the critical range appear toward the top.
+ sortedResults = results[  order( results[,'abs.diff-critical.range'] ) , ]
+ return (sortedResults )
+}
+
+
+calcChiSquaredConstant = function(dataFrame,confidence) {
+  nRows = dim(dataFrame)[1]  
+  nCols = dim(dataFrame)[2]  
+
+  degreesFreedom =  (nRows-1) * (nCols-1) 
+  chiSquaredConstant = sqrt( qchisq(confidence,degreesFreedom) )
+
+  return (chiSquaredConstant)
+}
+
+
+getResultsColumNames =  function (numRows) {
+   return ( 
+        list( 
+            c(), 
+            c('pair', 'abs.diff', 'critical.range', 'abs.diff-critical.range', 'significant')
+        ) 
+   )
+}
+
+# test significance for ith combination
+#
+testSignificanceOfAbsDiffVsCriticalRange = function(
+                dataFrame, combos, i,  chiSquaredConstant) {
+
+   results = matrix(nrow=1, ncol=5, dimnames=getResultsColumNames() )
+
+   pair1=combos[1,i]
+   pair2=combos[2,i]
+
+   # sum column denoted by name 'pair1' into groupTotal1 
+   groupTotal1 = sum( dataFrame[ , pair1])  
+   groupTotal2 = sum( dataFrame[ , pair2])  # do same thing for pair2... 
+
+   p1 = dataFrame[1, pair1] / groupTotal1 
+   p2 = dataFrame[1, pair2] / groupTotal2
+   p1Not = (1 - p1)
+   p2Not = (1 - p2)
+
+    absDiff = abs( p2  - p1 )
+
+    criticalRange = chiSquaredConstant  * 
+                        sqrt(p1*p1Not/groupTotal1 + p2*p2Not/groupTotal2)
+    results[1, 'pair'] = paste(pair1,"|",pair2) 
+    results[1, 'abs.diff'] = round(absDiff,3)
+    results[1, 'critical.range'] = round(criticalRange ,3)
+    results[1, 'abs.diff-critical.range'] = round(absDiff - criticalRange ,3)
+
+
+    if (absDiff > criticalRange) {
+        results[1, 'significant'] = 'Y'
+    } else {
+        results[1, 'significant'] = 'N'
+    } 
+
+    return(results)
+}
+```
+
+
+
+```{r}
+#4. How's the current mental health issues among the tech companies in the US compared with other countries
+# with mental health issues -> 2, not -> 1
+# two proportion test
+
+Q4_US <- Survey_num[Survey_num$Country == "United States", c("Country","treatment")]
+Q4_Other <- Survey_num[Survey_num$Country != "United States", c("Country","treatment")]
+
+prop.test(x = c(sum(Q4_US$treatment == 2), sum(Q4_Other$treatment == 2)), n =c(nrow(Q4_US), nrow(Q4_Other)))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
