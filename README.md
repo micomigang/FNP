@@ -142,8 +142,6 @@ minchuan.qin.gr@dartmouth.edu
 * Then use corrplot function from "corrplot" package to plot the correlation heatmap.
 
 
-### Tech Mental Health:
-
 #### Data Acquisition:  
 
 * The data is collected from: https://www.kaggle.com/datasets/osmi/mental-health-in-tech-survey?datasetId=311&sortBy=voteCount
